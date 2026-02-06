@@ -61,7 +61,7 @@ call_init (struct link_map *l, int argc, char **argv, char **env)
 
   /* Next see whether there is an array with initialization functions.  */
   ElfW(Dyn) *init_array = l->l_info[DT_INIT_ARRAY];
-  if (init_array != NULL)
+  if (init_array != NULL && l->l_info[DT_INIT_ARRAYSZ] != NULL)
     {
       unsigned int j;
       unsigned int jm;

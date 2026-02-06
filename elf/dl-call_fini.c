@@ -32,7 +32,7 @@ _dl_call_fini (void *closure_map)
   map->l_init_called = 0;
 
   ElfW(Dyn) *fini_array = map->l_info[DT_FINI_ARRAY];
-  if (fini_array != NULL)
+  if (fini_array != NULL && map->l_info[DT_FINI_ARRAYSZ] != NULL)
     {
       ElfW(Addr) *array = (ElfW(Addr) *) (map->l_addr
                                           + fini_array->d_un.d_ptr);
