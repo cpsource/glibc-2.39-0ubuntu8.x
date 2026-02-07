@@ -48,6 +48,7 @@
 #include <dl-main.h>
 #include <gnu/lib-names.h>
 #include <dl-tunables.h>
+#include <dl-secure.h>
 #include <get-dynamic-info.h>
 #include <dl-execve.h>
 #include <dl-find_object.h>
@@ -265,7 +266,7 @@ audit_list_next (struct audit_list *list)
 	++list->current_tail;
 
       /* If the name is valid, return it.  */
-      if (dso_name_valid_for_suid (list->fname))
+      if (! __glibc_unlikely (__libc_enable_secure) && dso_name_valid_for_suid (list->fname))
 	return list->fname;
 
       /* Otherwise wrap around to find the next list element. .  */
@@ -1936,6 +1937,12 @@ dl_main (const ElfW(Phdr) *phdr,
 	}
     }
 
+  /* Initialize the secure loader policy from /etc/ld.so.secure.
+     This must happen after ld.so.preload handling so that preloaded
+     libraries are already loaded, but before we process the main
+     executable's dependencies.  */
+  _dl_secure_init ();
+
   if (__glibc_unlikely (*first_preload != NULL))
     {
       /* Set up PRELOADS with a vector of the preloaded libraries.  */
@@ -2265,6 +2272,9 @@ dl_main (const ElfW(Phdr) *phdr,
     }
 
   _rtld_main_check (main_map, _dl_argv[0]);
+
+  /* Verify the main executable against the secure loader policy.  */
+  _dl_secure_check_main (main_map, _dl_argv[0]);
 
   /* Now we have all the objects loaded.  Relocate them all except for
      the dynamic linker itself.  We do this in reverse order so that copy
