@@ -54,6 +54,14 @@ See the file INSTALL to find out how to configure, build, and install
 the GNU C Library.  You might also consider reading the WWW pages for
 the C library at https://www.gnu.org/software/libc/.
 
+This tree includes the dl-secure module, a policy-based security
+extension for the dynamic linker (ld.so) that controls which executables
+and shared libraries may be loaded at runtime.  It supports path-based
+allow/deny rules, SHA-256 hash whitelisting, and HMAC-SHA256 signature
+verification.  See elf/README.md for an overview of the dynamic linker
+and the dl-secure integration points, and elf/README-dl-secure.md for
+full configuration, signing tool usage, and deployment instructions.
+
 The GNU C Library is (almost) completely documented by the Texinfo manual
 found in the `manual/' subdirectory.  The manual is still being updated
 and contains some known errors and omissions; we regret that we do not
