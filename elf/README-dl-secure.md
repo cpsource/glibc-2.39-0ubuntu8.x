@@ -345,15 +345,151 @@ for the current architecture.
 
 ## Testing
 
-The unit test verifies the cryptographic building blocks:
+### Building
+
+Configure and build glibc in an out-of-tree build directory:
 
 ```console
-$ make test t=tst-dl-secure
+$ mkdir -p ~/glibc-build && cd ~/glibc-build
+$ ~/glibc/configure --prefix=/usr
+$ make -j$(nproc)
+```
+
+This produces `~/glibc-build/testrun.sh`, a wrapper script that runs
+any program against the just-built (not installed) glibc by invoking
+the build's `ld.so` with the correct `--library-path`.
+
+### Running the unit test
+
+Via make:
+
+```console
+$ cd ~/glibc-build
+$ make test t=elf/tst-dl-secure
+```
+
+Or directly with `testrun.sh`:
+
+```console
+$ ~/glibc-build/testrun.sh ~/glibc-build/elf/tst-dl-secure
 ```
 
 This runs FIPS 180-4 test vectors for SHA-256 (empty string, "abc",
 two-block message) and validates HMAC-SHA256 determinism and
 key/data sensitivity.
 
-Full policy testing requires writing `/etc/ld.so.secure` (which needs
-root) and is better done via integration test scripts.
+### Running programs with testrun.sh
+
+`testrun.sh` runs any program against the build's libc, which is
+useful for ad-hoc testing and debugging of dl-secure.
+
+Run the hello-world test binary:
+
+```console
+$ ~/glibc-build/testrun.sh ~/glibc-build/elf/hello-world
+```
+
+Run an arbitrary system program against the build's libc:
+
+```console
+$ ~/glibc-build/testrun.sh /bin/ls -la
+```
+
+### Debugging with testrun.sh
+
+Inspect dl-secure log messages using `LD_DEBUG`:
+
+```console
+$ LD_DEBUG=all ~/glibc-build/testrun.sh ~/glibc-build/elf/hello-world 2>&1 | grep dl-secure
+```
+
+Trace syscalls (useful for verifying that `/etc/ld.so.secure` is
+opened and mmapped):
+
+```console
+$ ~/glibc-build/testrun.sh --tool=strace ~/glibc-build/elf/hello-world
+```
+
+Trace only file-related syscalls:
+
+```console
+$ ~/glibc-build/testrun.sh --tool="strace -e trace=open,openat,mmap" \
+    ~/glibc-build/elf/hello-world
+```
+
+Run under valgrind:
+
+```console
+$ ~/glibc-build/testrun.sh --tool=valgrind ~/glibc-build/elf/tst-dl-secure
+```
+
+Run under valgrind with leak checking:
+
+```console
+$ ~/glibc-build/testrun.sh --tool="valgrind --leak-check=full" \
+    ~/glibc-build/elf/tst-dl-secure
+```
+
+Run inside the glibc test container:
+
+```console
+$ ~/glibc-build/testrun.sh --tool=container ~/glibc-build/elf/tst-dl-secure
+```
+
+### Manual policy testing
+
+Full policy testing requires root to write `/etc/ld.so.secure`.
+Here is an example end-to-end test:
+
+```console
+# Create a minimal policy that denies /tmp
+$ sudo tee /etc/ld.so.secure <<'EOF'
+mode enforce
+allow-path /usr/lib/*
+allow-path /lib/x86_64-linux-gnu/*
+deny-path /tmp/*
+EOF
+
+# Verify that a normal program still works
+$ ~/glibc-build/testrun.sh ~/glibc-build/elf/hello-world
+
+# Copy a library to /tmp and try to load it (should fail)
+$ cp ~/glibc-build/elf/ld-linux-x86-64.so.2 /tmp/libtest.so
+$ LD_PRELOAD=/tmp/libtest.so ~/glibc-build/testrun.sh /bin/true
+# Expected: loading denied with EACCES
+
+# Clean up
+$ sudo rm /etc/ld.so.secure
+$ rm /tmp/libtest.so
+```
+
+Test signature verification:
+
+```console
+# Generate a key
+$ openssl rand -hex 32 > /tmp/test.key
+
+# Sign the hello-world binary
+$ python3 ~/glibc/scripts/elf-sign.py --key /tmp/test.key \
+    --sign ~/glibc-build/elf/hello-world
+
+# Create a policy requiring signatures
+$ sudo tee /etc/ld.so.secure <<EOF
+mode enforce
+allow-path /usr/lib/*
+allow-path /lib/x86_64-linux-gnu/*
+hmac-key $(cat /tmp/test.key)
+require-sig $(dirname ~/glibc-build/elf/hello-world)/*
+EOF
+
+# Run the signed binary (should succeed)
+$ ~/glibc-build/testrun.sh ~/glibc-build/elf/hello-world
+
+# Verify the signature independently
+$ python3 ~/glibc/scripts/elf-sign.py --key /tmp/test.key \
+    --verify ~/glibc-build/elf/hello-world
+
+# Clean up
+$ sudo rm /etc/ld.so.secure
+$ rm /tmp/test.key
+```
