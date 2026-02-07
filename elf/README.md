@@ -205,6 +205,9 @@ dl-close.c (for dlopen'd objects)
 | `dl-environ.c` | Environment variable iteration |
 | `dl-profile.c` | Shared library profiling support |
 | `dl-mutex.c` | Locking primitives for thread-safe dynamic linking |
+| `dl-secure.c` | Policy-based security enforcement: path rules, SHA-256 hash whitelisting, HMAC-SHA256 signature verification |
+| `dl-secure.h` | Data structures and API for the secure loader module |
+| `dl-sha256.h` | Self-contained SHA-256 implementation (header-only, no libc deps) |
 
 ### Standalone Utilities
 
@@ -355,6 +358,42 @@ linker activates secure mode (`__libc_enable_secure`). In this mode:
 
 The secure environment processing is handled by `process_envvars_secure()` in
 `rtld.c`.
+
+## Secure Loader (dl-secure)
+
+The `dl-secure` module adds policy-based security enforcement to ld.so,
+controlling which executables and shared libraries may be loaded.  When a
+policy file exists at `/etc/ld.so.secure`, every ELF binary is evaluated
+against the configured rules before loading proceeds.
+
+Three enforcement modes are available:
+
+| Mode      | Behavior                                |
+|-----------|-----------------------------------------|
+| `off`     | No enforcement (default when no config) |
+| `audit`   | Log violations but allow loading        |
+| `enforce` | Block violations (`EACCES`)             |
+
+Verification mechanisms (evaluated in order):
+
+1. **Path-based allow/deny rules** — glob patterns with `*` wildcards; deny
+   rules always take precedence.
+2. **SHA-256 hash whitelist** — hash computed over concatenated `PT_LOAD`
+   segments (stable across `strip`).
+3. **HMAC-SHA256 signature** — embedded in a `.note.dl-secure` ELF section,
+   verified with a shared key from the policy file using constant-time
+   comparison.
+
+Integration points in ld.so:
+
+| Function                  | Called from      | Purpose                              |
+|---------------------------|------------------|--------------------------------------|
+| `_dl_secure_init()`       | `dl_main()`      | Parse `/etc/ld.so.secure` at startup |
+| `_dl_secure_check_file()` | `open_verify()`  | Gate every shared library load       |
+| `_dl_secure_check_main()` | `dl_main()`      | Verify the main executable           |
+
+See [README-dl-secure.md](README-dl-secure.md) for full configuration
+reference, signing tool usage, deployment workflow, and testing instructions.
 
 ## Code Review Notes: `dl-load.c`
 
