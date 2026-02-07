@@ -114,13 +114,13 @@ mon	"一月";"二月";"三月";/
 	"十月";"十一月";"十二月"
 
 % d_t_fmt: "%Y<y>%m<m>%d<d> (%A) %H<hr>%M<m>%S<s>"
-d_t_fmt "西元%Y年%m月%d日 (%A) %H時/
+d_t_fmt "%Y年%m月%d日 (%A) %H時/
 %M分%S秒"
 
 date_fmt "西元%Y年%m月%d日 (%A) %H時/
 %M分%S秒 %Z"
 
-d_fmt	"西元%Y年%m月%d日"
+d_fmt	"%Y年%m月%d日"
 
 t_fmt	"%H時%M分%S秒"
 

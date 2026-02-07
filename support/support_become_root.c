@@ -28,6 +28,34 @@
 #include <unistd.h>
 
 #ifdef CLONE_NEWUSER
+static void
+write_id_map (int map_fd, unsigned long long src,
+                      unsigned long long dst, unsigned long long range)
+{
+  char map_buf[100];
+  int size = snprintf (map_buf, sizeof (map_buf), "%llu %llu %llu\n", src, dst,
+                       range);
+  TEST_VERIFY_EXIT (size < sizeof (map_buf));
+  int ret = write (map_fd, map_buf, size);
+  if (ret < 0)
+    {
+      if (errno == EPERM || errno == EACCES)
+        {
+          /* Likely a LSM deny.  */
+          FAIL_UNSUPPORTED (
+              "Could not write ID map file, check security settings: %m\n");
+        }
+      else
+        FAIL_EXIT1 ("Could not write ID map file: %m\n");
+    }
+  else if (ret < size)
+    {
+      /* Retrying would just fail with EPERM, see user_namespaces(7).  */
+      FAIL_EXIT1 (
+          "couldn't write the entire buffer at once to the ID file: %m\n");
+    }
+}
+
 /* The necessary steps to allow file creation in user namespaces.  */
 static void
 setup_uid_gid_mapping (uid_t original_uid, gid_t original_gid)
@@ -43,12 +71,7 @@ setup_uid_gid_mapping (uid_t original_uid, gid_t original_gid)
   /* We map our original UID to the same UID in the container so we
      own our own files normally.  Without that, file creation could
      fail with EOVERFLOW (sic!).  */
-  char buf[100];
-  int ret = snprintf (buf, sizeof (buf), "%llu %llu 1\n",
-                      (unsigned long long) original_uid,
-                      (unsigned long long) original_uid);
-  TEST_VERIFY_EXIT (ret < sizeof (buf));
-  xwrite (fd, buf, ret);
+  write_id_map (fd, original_uid, original_uid, 1);
   xclose (fd);
 
   /* Linux 3.19 introduced the setgroups file.  We need write "deny" to this
@@ -69,11 +92,7 @@ setup_uid_gid_mapping (uid_t original_uid, gid_t original_gid)
 
   /* Now map our own GID, like we did for the user ID.  */
   fd = xopen ("/proc/self/gid_map", O_WRONLY, 0);
-  ret = snprintf (buf, sizeof (buf), "%llu %llu 1\n",
-                  (unsigned long long) original_gid,
-                  (unsigned long long) original_gid);
-  TEST_VERIFY_EXIT (ret < sizeof (buf));
-  xwrite (fd, buf, ret);
+  write_id_map (fd, original_gid, original_gid, 1);
   xclose (fd);
 }
 #endif /* CLONE_NEWUSER */

@@ -61,7 +61,8 @@ do_test (void)
 	  {
 	    /* Older kernels may not support all the options, or security
 	       policy may block this call.  */
-	    if (errno == EINVAL || errno == EPERM || errno == ENOSPC)
+	    if (errno == EINVAL || errno == EPERM
+	        || errno == ENOSPC || errno == EACCES)
 	      exit (EXIT_UNSUPPORTED);
 	    FAIL_EXIT1 ("unshare user/fs/pid failed: %m");
 	  }
@@ -71,7 +72,7 @@ do_test (void)
 	    /* This happens if we're trying to create a nested container,
 	       like if the build is running under podman, and we lack
 	       priviledges.  */
-	    if (errno  == EPERM)
+	    if (errno  == EPERM || errno == EACCES)
 	      _exit (EXIT_UNSUPPORTED);
 	    else
 	      _exit (EXIT_FAILURE);

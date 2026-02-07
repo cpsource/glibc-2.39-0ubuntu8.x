@@ -134,6 +134,15 @@
    the caller.  */
 	.eabi_attribute 24, 1
 
+#ifdef __ARM_PCS_VFP
+/* Tag_FP_arch: Use of vfpv3-d16 instructions is permitted */
+	.eabi_attribute 10, 4
+/* Tag_ABI_HardFP_use: This code uses hard floating point */
+	.eabi_attribute 27, 3
+/* Tag_ABI_VFP_args: This code stores FP arguments in VFP registers */
+	.eabi_attribute 28, 1
+#endif  /* __ARM_PCS_VFP */
+
 /* The thumb2 encoding is reasonably complete.  Unless suppressed, use it.  */
 	.syntax unified
 # if defined(__thumb2__) && !defined(NO_THUMB)

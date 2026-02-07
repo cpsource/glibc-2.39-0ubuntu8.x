@@ -29,3 +29,5 @@ fi
 
 # Hurd has libpthread as a separate library.
 pthread_in_libc=no
+
+use_ldconfig=yes

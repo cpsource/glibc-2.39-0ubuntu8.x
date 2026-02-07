@@ -303,6 +303,7 @@ tests := \
   tst-posix_spawn-setsid \
   tst-preadwrite \
   tst-preadwrite64 \
+  tst-regcomp-bracket-free \
   tst-regcomp-truncated \
   tst-regex \
   tst-regex2 \
@@ -325,6 +326,7 @@ tests := \
   tst-wait4 \
   tst-waitid \
   tst-wordexp-nocmd \
+  tst-wordexp-reuse \
   tstgetopt \
   # tests
 
@@ -445,6 +447,8 @@ generated += \
   tst-rxspencer-no-utf8.mtrace \
   tst-vfork3-mem.out \
   tst-vfork3.mtrace \
+  tst-wordexp-reuse-mem.out \
+  tst-wordexp-reuse.mtrace \
   wordexp-tst.out \
   # generated
 
@@ -476,6 +480,7 @@ tests-special += \
   $(objpfx)tst-pcre-mem.out \
   $(objpfx)tst-rxspencer-no-utf8-mem.out \
   $(objpfx)tst-vfork3-mem.out \
+  $(objpfx)tst-wordexp-reuse.out \
   # tests-special
 endif
 
@@ -757,3 +762,10 @@ $(objpfx)posix-conf-vars-def.h: $(..)scripts/gen-posix-conf-vars.awk \
 	$(make-target-directory)
 	$(AWK) -f $(filter-out Makefile, $^) > $@.tmp
 	mv -f $@.tmp $@
+
+tst-wordexp-reuse-ENV += MALLOC_TRACE=$(objpfx)tst-wordexp-reuse.mtrace \
+			 LD_PRELOAD=$(common-objpfx)/malloc/libc_malloc_debug.so
+
+$(objpfx)tst-wordexp-reuse-mem.out: $(objpfx)tst-wordexp-reuse.out
+	$(common-objpfx)malloc/mtrace $(objpfx)tst-wordexp-reuse.mtrace > $@; \
+	$(evaluate-test)

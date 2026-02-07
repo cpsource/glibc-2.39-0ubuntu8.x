@@ -54,6 +54,7 @@ EOF
 
 cat > "$testroot/stdout-expected" <<EOF
 LANG=
+LANGUAGE=
 LC_CTYPE="invalid-locale"
 LC_NUMERIC="invalid-locale"
 LC_TIME="invalid-locale"

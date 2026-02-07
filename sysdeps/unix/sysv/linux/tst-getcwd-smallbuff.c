@@ -133,7 +133,13 @@ child_func (void * const arg)
   TEST_VERIFY_EXIT (ch == '1');
 
   if (mount ("/", MOUNT_NAME, NULL, MS_BIND | MS_REC, NULL))
-    FAIL_EXIT1 ("mount failed: %m\n");
+    {
+      /* Probably rejected by local security policy.  */
+      if (errno == EPERM || errno == EACCES)
+        FAIL_UNSUPPORTED ("mount failed (security policy?): %m\n");
+      else
+        FAIL_EXIT1 ("mount failed: %m\n");
+    }
   const int fd = xopen ("mpoint",
 			O_RDONLY | O_PATH | O_DIRECTORY | O_NOFOLLOW, 0);
 
@@ -194,10 +200,11 @@ do_test (void)
     pid_t pid = xfork ();
     if (pid == 0)
       {
-	if (unshare (CLONE_NEWUSER | CLONE_NEWNS) != 0)
-	  _exit (EXIT_UNSUPPORTED);
-	else
-	  _exit (0);
+        if (unshare (CLONE_NEWUSER | CLONE_NEWNS) != 0
+            || mount ("none", "/", NULL, MS_REC | MS_PRIVATE, NULL) != 0)
+          _exit (EXIT_UNSUPPORTED);
+        else
+          _exit (0);
       }
     int status;
     xwaitpid (pid, &status, 0);

@@ -24,6 +24,36 @@
 
 #include <shlib-compat.h>
 
+
+static int valid_nanosleep_ts (const struct __timespec64 *ts) {
+  return (ts->tv_nsec >= 0 && ts->tv_nsec < 1000000000L && ts->tv_sec >= 0);
+}
+
+/* Use CLOCK_MONOTONIC and convert request with TIMER_ABSTIME to use relative time */
+#define MONOTONIC_FALLBACK do {                                         \
+    if (__glibc_unlikely (flags & TIMER_ABSTIME))                       \
+    {                                                                   \
+      struct __timespec64 current_realtime, actual_req;                 \
+      actual_req = *req;                                                \
+      if(__clock_gettime64(CLOCK_REALTIME, &current_realtime))          \
+        return EINVAL;                                                  \
+      actual_req.tv_nsec -= current_realtime.tv_nsec;                   \
+      actual_req.tv_sec -= current_realtime.tv_sec;                     \
+      if (actual_req.tv_nsec < 0)                                       \
+      {                                                                 \
+        --actual_req.tv_sec;                                            \
+        actual_req.tv_nsec = 1000000000L + actual_req.tv_nsec;          \
+      }                                                                 \
+      r = INTERNAL_SYSCALL_CANCEL (clock_nanosleep_time64,              \
+                                   CLOCK_MONOTONIC,                     \
+                                   flags & ~TIMER_ABSTIME,              \
+                                   &actual_req, rem);                   \
+    } else                                                              \
+      r = INTERNAL_SYSCALL_CANCEL (clock_nanosleep_time64,              \
+                                   CLOCK_MONOTONIC, flags,              \
+                                   req, rem);                           \
+  } while (0)
+
 /* We can simply use the syscall.  The CPU clocks are not supported
    with this function.  */
 int
@@ -47,11 +77,19 @@ __clock_nanosleep_time64 (clockid_t clock_id, int flags,
 #ifdef __ASSUME_TIME64_SYSCALLS
   r = INTERNAL_SYSCALL_CANCEL (clock_nanosleep_time64, clock_id, flags, req,
 			       rem);
+  if (__glibc_unlikely (INTERNAL_SYSCALL_ERRNO (r) == EINVAL
+			&& clock_id == CLOCK_REALTIME
+			&& valid_nanosleep_ts(req)))
+    MONOTONIC_FALLBACK;
 #else
   if (!in_int32_t_range (req->tv_sec))
     {
       r = INTERNAL_SYSCALL_CANCEL (clock_nanosleep_time64, clock_id, flags,
 				   req, rem);
+      if (__glibc_unlikely (INTERNAL_SYSCALL_ERRNO (r) == EINVAL
+			    && clock_id == CLOCK_REALTIME
+			    && valid_nanosleep_ts(req)))
+	MONOTONIC_FALLBACK;
       if (r == -ENOSYS)
 	r = -EOVERFLOW;
     }
@@ -61,6 +99,10 @@ __clock_nanosleep_time64 (clockid_t clock_id, int flags,
       struct timespec ts32 = valid_timespec64_to_timespec (*req);
       r = INTERNAL_SYSCALL_CANCEL (clock_nanosleep, clock_id, flags, &ts32,
 				   &tr32);
+      if (__glibc_unlikely (INTERNAL_SYSCALL_ERRNO (r) == EINVAL
+			    && clock_id == CLOCK_REALTIME
+			    && valid_nanosleep_ts(req)))
+	MONOTONIC_FALLBACK;
       if (INTERNAL_SYSCALL_ERROR_P (r))
 	{
 	  if (r == -EINTR && rem != NULL && (flags & TIMER_ABSTIME) == 0)

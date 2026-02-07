@@ -25,7 +25,13 @@ ENTRY(__getcontext)
 	/* Load address of the context data structure.  */
 	movl	4(%esp), %eax
 
-	/* Save the preserved register values and the return address.  */
+	/* Return value of getcontext.  EAX is the only register whose
+	   value is not preserved.  */
+	movl	$0, oEAX(%eax)
+
+	/* Save the 32-bit register values and the return address.  */
+	movl	%ecx, oECX(%eax)
+	movl	%edx, oEDX(%eax)
 	movl	%edi, oEDI(%eax)
 	movl	%esi, oESI(%eax)
 	movl	%ebp, oEBP(%eax)

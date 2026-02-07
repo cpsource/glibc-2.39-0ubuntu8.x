@@ -30,6 +30,7 @@
 #include <hurd/id.h>
 #include <hurd/lookup.h>
 #include <hurd/resource.h>
+#include <hurd/fs_experimental.h>
 #include <assert.h>
 #include <argz.h>
 #include "spawn_int.h"
@@ -333,7 +334,6 @@ __spawni (pid_t *pid, const char *file,
   ss = _hurd_self_sigstate ();
 
 retry:
-  assert (! __spin_lock_locked (&ss->critical_section_lock));
   __spin_lock (&ss->critical_section_lock);
 
   _hurd_sigstate_lock (ss);
@@ -679,11 +679,29 @@ retry:
 					ref, MACH_MSG_TYPE_MAKE_SEND,
 					&newproc);
       __mach_port_destroy (__mach_task_self (), ref);
-      if (!err)
-	{
-	  __mach_port_deallocate (__mach_task_self (), proc);
-	  proc = newproc;
-	}
+      if (err)
+        goto out;
+      if (newproc == MACH_PORT_NULL)
+        {
+          /* Old versions of the proc server did not recreate the process
+             port when reauthenticating, and passed MACH_PORT_NULL through
+             the auth server.  That must be what we're dealing with.  Just
+             keep the existing proc port in this case.  */
+        }
+      else
+        {
+          err = __proc_reauthenticate_complete (newproc);
+          if (err)
+            {
+              __mach_port_deallocate (__mach_task_self (), newproc);
+              goto out;
+            }
+          else
+	    {
+	      __mach_port_deallocate (__mach_task_self (), proc);
+	      proc = newproc;
+	    }
+        }
 
       if (!err)
 	err = reauthenticate (INIT_PORT_CRDIR, &rcrdir);
@@ -828,6 +846,18 @@ retry:
 	  (file, task,
 	   __sigismember (&_hurdsig_traced, SIGKILL) ? EXEC_SIGTRAP : 0,
 	   relpath, abspath, args, argslen, env, envlen,
+	   dtable, MACH_MSG_TYPE_COPY_SEND, dtablesize,
+	   ports, MACH_MSG_TYPE_COPY_SEND, _hurd_nports,
+	   ints, INIT_INT_MAX,
+	   NULL, 0, NULL, 0);
+
+	/* Fallback for backwards compatibility.  This can just be removed
+	   when __file_exec goes away.  */
+	if (err == MIG_BAD_ID)
+	  err = __file_exec_file_name
+	  (file, task,
+	   __sigismember (&_hurdsig_traced, SIGKILL) ? EXEC_SIGTRAP : 0,
+	   relpath, args, argslen, env, envlen,
 	   dtable, MACH_MSG_TYPE_COPY_SEND, dtablesize,
 	   ports, MACH_MSG_TYPE_COPY_SEND, _hurd_nports,
 	   ints, INIT_INT_MAX,

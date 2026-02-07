@@ -66,6 +66,8 @@ void *_dl_random attribute_relro = NULL;
 
 struct hurd_startup_data *_dl_hurd_data;
 
+uintptr_t __stack_chk_guard attribute_relro;
+
 
 ElfW(Addr)
 _dl_sysdep_start (void **start_argptr,

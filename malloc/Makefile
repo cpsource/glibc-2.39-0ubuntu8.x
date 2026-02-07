@@ -218,10 +218,6 @@ address-width=18
 endif
 endif
 
-# Unless we get a test for the availability of libgd which also works
-# for cross-compiling we disable the memusagestat generation in this
-# situation.
-ifneq ($(cross-compiling),yes)
 # If the gd library is available we build the `memusagestat' program.
 ifneq ($(LIBGD),no)
 others: $(objpfx)memusage
@@ -236,7 +232,6 @@ extra-objs += memusagestat.o
 # kernel interface headers, not something like libgd.  So the simplest thing
 # is to presume that the standard system headers will be ok for this file.
 $(objpfx)memusagestat.o: sysincludes = # nothing
-endif
 endif
 
 # Another goal which can be used to override the configure decision.

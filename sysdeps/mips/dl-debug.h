@@ -33,7 +33,8 @@ elf_setup_debug_entry (struct link_map *l, struct r_debug *r)
       ptr += l->l_info[DT_MIPS (RLD_MAP_REL)]->d_un.d_val;
       *(ElfW(Addr) *) ptr = (ElfW(Addr)) r;
     }
-  else if (l->l_info[DT_MIPS (RLD_MAP)] != NULL)
+  else if (l->l_info[DT_MIPS (RLD_MAP)] != NULL &&
+      (l)->l_info[DT_MIPS (RLD_MAP)]->d_un.d_ptr)
     *(ElfW(Addr) *) (l->l_info[DT_MIPS (RLD_MAP)]->d_un.d_ptr)
       = (ElfW(Addr)) r;
 }

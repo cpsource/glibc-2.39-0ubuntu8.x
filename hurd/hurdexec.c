@@ -25,8 +25,11 @@
 #include <hurd/fd.h>
 #include <hurd/signal.h>
 #include <hurd/id.h>
+#include <hurd/fs_experimental.h>
 #include <assert.h>
 #include <argz.h>
+
+#include <shlib-compat.h>
 
 /* Overlay TASK, executing FILE with arguments ARGV and environment ENVP.
    If TASK == mach_task_self (), some ports are dealloc'd by the exec server.
@@ -37,6 +40,13 @@ _hurd_exec (task_t task, file_t file,
 	    char *const argv[], char *const envp[])
 {
   return _hurd_exec_paths (task, file, NULL, NULL, argv, envp);
+}
+
+error_t
+__hurd_exec_file_name (task_t task, file_t file, const char *filename,
+	    char *const argv[], char *const envp[])
+{
+  return _hurd_exec_paths (task, file, filename, filename, argv, envp);
 }
 
 link_warning (_hurd_exec,
@@ -128,7 +138,6 @@ _hurd_exec_paths (task_t task, file_t file,
   ss = _hurd_self_sigstate ();
 
 retry:
-  assert (! __spin_lock_locked (&ss->critical_section_lock));
   __spin_lock (&ss->critical_section_lock);
 
   _hurd_sigstate_lock (ss);
@@ -443,6 +452,18 @@ retry:
       /* Fall back for backwards compatibility.  This can just be removed
          when __file_exec goes away.  */
       if (err == MIG_BAD_ID)
+	err = __file_exec_file_name (file, task, flags,
+				    path ? path : "",
+				    args, argslen, env, envlen,
+				    dtable, MACH_MSG_TYPE_COPY_SEND, dtablesize,
+				    ports, MACH_MSG_TYPE_COPY_SEND,
+				    _hurd_nports,
+				    ints, INIT_INT_MAX,
+				    please_dealloc, pdp - please_dealloc,
+				    portnames, nportnames);
+      /* Fall back for backwards compatibility.  This can just be removed
+         when __file_exec goes away.  */
+      if (err == MIG_BAD_ID)
 	err = __file_exec (file, task, flags,
 			   args, argslen, env, envlen,
 			   dtable, MACH_MSG_TYPE_COPY_SEND, dtablesize,
@@ -490,3 +511,9 @@ retry:
   return err;
 }
 libc_hidden_def (_hurd_exec_paths)
+extern error_t _hurd_exec_file_name (task_t task,
+				     file_t file,
+				     const char *filename,
+				     char *const argv[],
+				     char *const envp[]);
+versioned_symbol (libc, __hurd_exec_file_name, _hurd_exec_file_name, GLIBC_2_21);

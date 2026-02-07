@@ -42,7 +42,6 @@ hurd_thread_cancel (thread_t thread)
       return 0;
     }
 
-  assert (! __spin_lock_locked (&ss->critical_section_lock));
   __spin_lock (&ss->critical_section_lock);
   __spin_lock (&ss->lock);
   err = __thread_suspend (thread);
@@ -82,7 +81,6 @@ hurd_check_cancel (void)
   int cancel;
 
   __spin_lock (&ss->lock);
-  assert (! __spin_lock_locked (&ss->critical_section_lock));
   cancel = ss->cancel;
   ss->cancel = 0;
   __spin_unlock (&ss->lock);

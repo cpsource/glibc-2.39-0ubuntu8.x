@@ -153,6 +153,11 @@ libdir = $(exec_prefix)/lib
 endif
 inst_libdir = $(install_root)$(libdir)
 
+# Compat places to look for libraries
+ifndef extra_libdir
+extra_libdir = /lib:$(exec_prefix)/lib
+endif
+
 # Where to install the shared library.
 ifndef slibdir
 slibdir = $(exec_prefix)/lib
@@ -630,6 +635,10 @@ ifneq ($(libdir),$(slibdir))
 default-rpath = $(slibdir):$(libdir)
 else
 default-rpath = $(libdir)
+endif
+
+ifdef extra_libdir
+default-rpath += :$(extra_libdir)
 endif
 
 ifndef link-extra-libs

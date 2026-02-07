@@ -29,11 +29,11 @@ inline-headers = hurd.h $(addprefix hurd/,fd.h signal.h \
 # The RPC interfaces go in a separate library.
 interface-library := libhurduser
 user-interfaces		:= $(addprefix hurd/,\
-				       auth startup \
+				       auth auth_request auth_reply startup \
 				       process process_request \
 				       msg msg_reply msg_request \
-				       exec exec_startup crash interrupt \
-				       fs fsys io io_reply io_request \
+				       exec exec_experimental exec_startup crash interrupt \
+				       fs fs_experimental fsys io io_reply io_request \
 				       term tioctl socket ifsock \
 				       login password pfinet pci \
 				       )
@@ -56,6 +56,7 @@ routines = hurdstartup hurdinit \
 	   ports-get ports-set hurdports hurdmsg \
 	   errno-loc \
 	   hurdlock \
+	   sysvshm \
 	   $(sig) $(dtable) $(inlines) \
 	   fd-cleanup port-cleanup report-wait xattr
 sig	= hurdsig hurdfault siginfo hurd-raise preempt-sig \

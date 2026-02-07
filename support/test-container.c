@@ -682,6 +682,8 @@ check_for_unshare_hints (int require_pidns)
     { "/proc/sys/kernel/unprivileged_userns_clone", 0, 1, 0 },
     /* ALT Linux has an alternate way of doing the same.  */
     { "/proc/sys/kernel/userns_restrict", 1, 0, 0 },
+    /* AppArmor can also disable unprivileged user namespaces */
+    { "/proc/sys/kernel/apparmor_restrict_unprivileged_userns", 1, 0, 0 },
     /* Linux kernel >= 4.9 has a configurable limit on the number of
        each namespace.  Some distros set the limit to zero to disable the
        corresponding namespace as a "security policy".  */
@@ -1108,10 +1110,11 @@ main (int argc, char **argv)
     {
       /* Older kernels may not support all the options, or security
 	 policy may block this call.  */
-      if (errno == EINVAL || errno == EPERM || errno == ENOSPC)
+      if (errno == EINVAL || errno == EPERM
+          || errno == ENOSPC || errno == EACCES)
 	{
 	  int saved_errno = errno;
-	  if (errno == EPERM || errno == ENOSPC)
+	  if (errno == EPERM || errno == ENOSPC || errno == EACCES)
 	    check_for_unshare_hints (require_pidns);
 	  FAIL_UNSUPPORTED ("unable to unshare user/fs: %s", strerror (saved_errno));
 	}
@@ -1130,7 +1133,17 @@ main (int argc, char **argv)
 
   /* Some systems, by default, all mounts leak out of the namespace.  */
   if (mount ("none", "/", NULL, MS_REC | MS_PRIVATE, NULL) != 0)
-    FAIL_EXIT1 ("could not create a private mount namespace\n");
+    {
+      int saved_errno = errno;
+      if (errno == EPERM || errno == EACCES)
+        {
+          check_for_unshare_hints (require_pidns);
+          FAIL_UNSUPPORTED ("could not create a private mount namespace "
+                            "(security policy?: %s)",
+                            strerror (saved_errno));
+        }
+      FAIL_EXIT1 ("could not create a private mount namespace\n");
+    }
 
   trymount (support_srcdir_root, new_srcdir_path);
   trymount (support_objdir_root, new_objdir_path);

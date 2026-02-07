@@ -17,3 +17,4 @@ GLIBC_2.2.6 abort F
 GLIBC_2.3 ___tls_get_addr F
 GLIBC_2.3 __tls_get_addr F
 GLIBC_2.34 __rtld_version_placeholder F
+GLIBC_2.4 __stack_chk_guard D 0x4
